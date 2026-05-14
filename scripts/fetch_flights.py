@@ -306,7 +306,7 @@ def filtrar_e_normalizar(todos_voos: list, icao: str) -> tuple[list, list]:
 
 # ── Execucao principal ────────────────────────────────────────────────────────
 
-os.makedirs("data", exist_ok=True")
+os.makedirs("data", exist_ok=True)
 
 # Busca todos os voos do dia uma unica vez
 todos_voos = buscar_voos_do_dia()
