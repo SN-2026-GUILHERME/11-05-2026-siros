@@ -1,0 +1,11 @@
+{
+  "updated_at": "2026-05-14T19:43:16.182032+00:00",
+  "data_referencia": "2026-05-14",
+  "airport_icao": "SBVT",
+  "airport_name": "SBVT",
+  "airport_info": {},
+  "source": "SIROS/ANAC",
+  "source_url": "https://sas.anac.gov.br/sas/siros_api/",
+  "arrivals": [],
+  "departures": []
+}
