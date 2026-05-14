@@ -1,0 +1,11 @@
+{
+  "updated_at": "2026-05-14T19:52:10.073647+00:00",
+  "data_referencia": "2026-05-14",
+  "airport_icao": "GIG",
+  "airport_name": "GIG",
+  "airport_info": {},
+  "source": "SIROS/ANAC",
+  "source_url": "https://sas.anac.gov.br/sas/siros_api/",
+  "arrivals": [],
+  "departures": []
+}

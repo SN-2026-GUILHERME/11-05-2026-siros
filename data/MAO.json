@@ -1,0 +1,11 @@
+{
+  "updated_at": "2026-05-14T19:52:19.155646+00:00",
+  "data_referencia": "2026-05-14",
+  "airport_icao": "MAO",
+  "airport_name": "MAO",
+  "airport_info": {},
+  "source": "SIROS/ANAC",
+  "source_url": "https://sas.anac.gov.br/sas/siros_api/",
+  "arrivals": [],
+  "departures": []
+}
