@@ -32,8 +32,8 @@ BRT = timezone(timedelta(hours=-3))
 
 # Data de hoje em Brasilia no formato ddMMaaaa exigido pela API
 hoje     = datetime.now(BRT)
-data_ref = hoje.strftime("%d%m%Y")        # ex: 10052026
-data_iso = hoje.strftime("%Y-%m-%d")      # ex: 2026-05-10
+data_ref = hoje.strftime("%d%m%Y")
+data_iso = hoje.strftime("%Y-%m-%d")
 
 print(f"SIROS/ANAC — Buscando voos para: {hoje.strftime('%d/%m/%Y')} (Brasilia)")
 print(f"Aeroportos configurados: {', '.join(AIRPORTS)}")
@@ -113,40 +113,16 @@ def get_equipment_name(icao_equip: str) -> str:
     return EQUIPAMENTOS.get(code, code)
 
 
-def converter_utc_para_brt(horario_utc: str, data_base: str) -> str:
-    """
-    Converte horario no formato HH:MM (UTC) para BRT (UTC-3).
-    data_base no formato YYYY-MM-DD.
-    Retorna string no formato HH:MM.
-    """
-    if not horario_utc or len(horario_utc) < 5:
-        return horario_utc or "?"
-    try:
-        hora, minuto = int(horario_utc[:2]), int(horario_utc[3:5])
-        dt_utc = datetime.fromisoformat(f"{data_base}T{hora:02d}:{minuto:02d}:00+00:00")
-        dt_brt = dt_utc.astimezone(BRT)
-        return dt_brt.strftime("%H:%M")
-    except Exception:
-        return horario_utc
-
-
 def parse_datetime_brt(dt_str: str) -> str:
     """
-    Converte datetime string da API (varios formatos possiveis) para ISO com BRT.
+    Converte datetime string da API para ISO com BRT.
     """
     if not dt_str:
         return ""
+
     try:
-        # Tenta formato ISO com timezone
-        if "T" in dt_str:
-            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-            return dt.astimezone(BRT).isoformat()
-        # Tenta formato de data+hora separado por espaco
-        if " " in dt_str:
-            dt = datetime.fromisoformat(dt_str)
-            dt_utc = dt.replace(tzinfo=timezone.utc)
-            return dt_utc.astimezone(BRT).isoformat()
-        return dt_str
+        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        return dt.astimezone(BRT).isoformat()
     except Exception:
         return dt_str
 
@@ -154,164 +130,164 @@ def parse_datetime_brt(dt_str: str) -> str:
 def buscar_voos_do_dia() -> list:
     """
     Busca todos os voos programados para hoje via endpoint /api/voos.
-    Retorna lista de dicionarios com os dados de cada voo.
     """
     url = f"{API_BASE}/voos"
     params = {"dataReferencia": data_ref}
 
     try:
         print(f"\nRequisicao: GET {url}?dataReferencia={data_ref}")
+
         r = requests.get(url, params=params, timeout=60)
         r.raise_for_status()
 
-        # A API pode retornar JSON array ou string CSV
-        content_type = r.headers.get("content-type", "")
         raw = r.text.strip()
 
-        # Tenta interpretar como JSON
+        # JSON
         if raw.startswith("[") or raw.startswith("{"):
             data = r.json()
+
             if isinstance(data, list):
-                print(f"  Retorno: {len(data)} voos no total (JSON)")
+                print(f"  Retorno: {len(data)} voos")
                 return data
-            elif isinstance(data, dict):
-                # Pode estar em uma chave como "data" ou "voos"
+
+            if isinstance(data, dict):
                 for key in ("data", "voos", "result", "results"):
                     if key in data and isinstance(data[key], list):
-                        print(f"  Retorno: {len(data[key])} voos no total (JSON key={key})")
+                        print(f"  Retorno: {len(data[key])} voos")
                         return data[key]
-            return []
 
-        # Tenta interpretar como CSV com separador ";"
+        # CSV
         if ";" in raw:
+
             linhas = [l for l in raw.splitlines() if l.strip()]
+
             if not linhas:
                 return []
 
-            # Primeira linha pode ser cabecalho
             cabecalho = [c.strip() for c in linhas[0].split(";")]
-
-            # Verifica se e realmente um cabecalho (contem texto nao numerico)
-            if any(not c[:1].isdigit() for c in cabecalho[:3]):
-                dados = linhas[1:]
-            else:
-                # Sem cabecalho — usa nomes padrao da documentacao
-                cabecalho = [
-                    "dt_inicio", "cd_icao_empresa", "nr_etapa", "nr_voo",
-                    "cd_icao_equipamento", "qt_assentos", "cd_icao_origem",
-                    "dt_hr_partida_prevista", "cd_icao_destino",
-                    "dt_hr_chegada_prevista", "tp_operacao", "codeshare"
-                ]
-                dados = linhas
+            dados = linhas[1:]
 
             result = []
+
             for linha in dados:
                 cols = [c.strip() for c in linha.split(";")]
+
                 voo = {}
+
                 for i, campo in enumerate(cabecalho):
                     voo[campo] = cols[i] if i < len(cols) else ""
+
                 result.append(voo)
 
-            print(f"  Retorno: {len(result)} voos no total (CSV)")
+            print(f"  Retorno: {len(result)} voos")
             return result
 
-        print(f"  [AVISO] Formato de resposta nao reconhecido.")
         return []
 
-    except requests.exceptions.HTTPError as e:
-        print(f"  [ERRO] HTTP {r.status_code}: {e}")
-        return []
     except Exception as e:
-        print(f"  [ERRO] Falha ao buscar voos: {e}")
+        print(f"  [ERRO] {e}")
         return []
 
 
 def buscar_dados_aerodromo(icao: str) -> dict:
     """
-    Busca dados complementares de um aeroporto via /api/aerodromo.
+    Busca dados complementares do aeroporto.
     """
+
     url = f"{API_BASE}/aerodromo"
+
     try:
-        r = requests.get(url, params={"sg_aerodromo_icao_ou_iata": icao}, timeout=30)
+        r = requests.get(
+            url,
+            params={"sg_aerodromo_icao_ou_iata": icao},
+            timeout=30
+        )
+
         r.raise_for_status()
+
         data = r.json()
+
         if isinstance(data, list) and data:
             return data[0]
+
         if isinstance(data, dict):
             return data
-        return {}
-    except Exception as e:
-        print(f"  [AVISO] Nao foi possivel buscar dados do aerodromo {icao}: {e}")
+
         return {}
 
-
-def normalizar_campo(voo: dict, *chaves) -> str:
-    """Tenta multiplas chaves possiveis e retorna o primeiro valor encontrado."""
-    for chave in chaves:
-        val = voo.get(chave, "")
-        if val:
-            return str(val).strip()
-    return ""
+    except Exception:
+        return {}
 
 
 def filtrar_e_normalizar(todos_voos: list, icao: str) -> tuple[list, list]:
-    """
-    Filtra os voos pelo aeroporto ICAO (como origem OU destino)
-    e normaliza os campos para o formato de saida.
-    """
-    chegadas   = []
-    partidas   = []
 
-    # Possiveis nomes de campo para aeroporto de origem e destino
-    campos_origem  = ("cd_icao_origem", "icaoOrigem", "sg_icao_origem",
-                      "aeroporto_origem", "origem_icao", "dep_icao")
-    campos_destino = ("cd_icao_destino", "icaoDestino", "sg_icao_destino",
-                      "aeroporto_destino", "destino_icao", "arr_icao")
-    campos_empresa = ("cd_icao_empresa", "icaoEmpresa", "empresa_icao", "cia_icao")
-    campos_voo     = ("nr_voo", "numeroVoo", "numero_voo", "flight_number")
-    campos_equip   = ("cd_icao_equipamento", "equipamento", "equip_icao", "equipment")
-    campos_partida = ("dt_hr_partida_prevista", "horarioPartida", "hr_partida",
-                      "partida_prevista", "departure_scheduled")
-    campos_chegada = ("dt_hr_chegada_prevista", "horarioChegada", "hr_chegada",
-                      "chegada_prevista", "arrival_scheduled")
-    campos_assento = ("qt_assentos", "quantidadeAssentos", "assentos", "seats")
-    campos_op      = ("tp_operacao", "tipoOperacao", "tipo_operacao", "operation_type")
-    campos_etapa   = ("nr_etapa", "numeroEtapa", "etapa")
+    chegadas = []
+    partidas = []
 
     for voo in todos_voos:
-        origem  = normalizar_campo(voo, *campos_origem).upper()
-        destino = normalizar_campo(voo, *campos_destino).upper()
+
+        origem = (
+            voo.get("cd_icao_origem")
+            or voo.get("origem")
+            or voo.get("aeroporto_origem")
+            or ""
+        ).strip().upper()
+
+        destino = (
+            voo.get("cd_icao_destino")
+            or voo.get("destino")
+            or voo.get("aeroporto_destino")
+            or ""
+        ).strip().upper()
 
         if origem != icao and destino != icao:
             continue
 
-        empresa   = normalizar_campo(voo, *campos_empresa)
-        nr_voo    = normalizar_campo(voo, *campos_voo)
-        equip     = normalizar_campo(voo, *campos_equip)
-        partida   = normalizar_campo(voo, *campos_partida)
-        chegada   = normalizar_campo(voo, *campos_chegada)
-        assentos  = normalizar_campo(voo, *campos_assento)
-        tp_op     = normalizar_campo(voo, *campos_op)
-        etapa     = normalizar_campo(voo, *campos_etapa)
+        empresa = (
+            voo.get("cd_icao_empresa")
+            or voo.get("empresa")
+            or ""
+        ).strip().upper()
+
+        numero_voo = (
+            voo.get("nr_voo")
+            or voo.get("numero_voo")
+            or ""
+        ).strip()
+
+        equipamento = (
+            voo.get("cd_icao_equipamento")
+            or voo.get("equipamento")
+            or ""
+        ).strip().upper()
+
+        partida = (
+            voo.get("dt_hr_partida_prevista")
+            or voo.get("partida_prevista")
+            or ""
+        )
+
+        chegada = (
+            voo.get("dt_hr_chegada_prevista")
+            or voo.get("chegada_prevista")
+            or ""
+        )
 
         registro = {
-            "callsign":          f"{empresa}{nr_voo}".strip() or "?",
-            "numero_voo":        nr_voo,
-            "airline_icao":      empresa,
-            "airline":           get_airline_name(empresa),
-            "equipamento_icao":  equip,
-            "equipamento":       get_equipment_name(equip),
-            "assentos":          assentos,
-            "etapa":             etapa,
-            "tipo_operacao":     TIPO_OPERACAO.get(tp_op.upper(), tp_op or "Domestico"),
-            "origem_icao":       origem,
-            "destino_icao":      destino,
-            "partida_utc":       partida,
-            "chegada_utc":       chegada,
-            "partida_brt":       parse_datetime_brt(partida),
-            "chegada_brt":       parse_datetime_brt(chegada),
-            "status":            "programado",   # SIROS so tem voos planejados
-            "fonte":             "SIROS/ANAC",
+            "callsign": f"{empresa}{numero_voo}",
+            "numero_voo": numero_voo,
+            "airline_icao": empresa,
+            "airline": get_airline_name(empresa),
+            "equipamento_icao": equipamento,
+            "equipamento": get_equipment_name(equipamento),
+            "origem_icao": origem,
+            "destino_icao": destino,
+            "partida_utc": partida,
+            "chegada_utc": chegada,
+            "partida_brt": parse_datetime_brt(partida),
+            "chegada_brt": parse_datetime_brt(chegada),
+            "status": "programado",
+            "fonte": "SIROS/ANAC",
         }
 
         if destino == icao:
@@ -322,7 +298,6 @@ def filtrar_e_normalizar(todos_voos: list, icao: str) -> tuple[list, list]:
             registro["rota"] = destino
             partidas.append(registro)
 
-    # Ordena pelo horario de partida/chegada
     chegadas.sort(key=lambda x: x.get("chegada_brt") or "")
     partidas.sort(key=lambda x: x.get("partida_brt") or "")
 
@@ -331,21 +306,22 @@ def filtrar_e_normalizar(todos_voos: list, icao: str) -> tuple[list, list]:
 
 # ── Execucao principal ────────────────────────────────────────────────────────
 
-os.makedirs("data", exist_ok=True)
+os.makedirs("data", exist_ok=True")
 
 # Busca todos os voos do dia uma unica vez
 todos_voos = buscar_voos_do_dia()
 
 if not todos_voos:
-    print("\n[AVISO] Nenhum voo retornado pela API. Salvando arquivos vazios.")
+    print("\n[AVISO] Nenhum voo retornado pela API.")
 
 # Processa cada aeroporto configurado
 for icao in AIRPORTS:
+
     print(f"\nProcessando {icao}...")
 
-    # Dados do aeroporto
     dados_aerodromo = buscar_dados_aerodromo(icao)
-    nome_aerodromo  = (
+
+    nome_aerodromo = (
         dados_aerodromo.get("nm_aerodromo")
         or dados_aerodromo.get("nome")
         or dados_aerodromo.get("name")
@@ -353,21 +329,23 @@ for icao in AIRPORTS:
     )
 
     chegadas, partidas = filtrar_e_normalizar(todos_voos, icao)
+
     print(f"  Filtrado: {len(chegadas)} chegadas, {len(partidas)} partidas")
 
     output = {
-        "updated_at":     datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "data_referencia": data_iso,
-        "airport_icao":   icao,
-        "airport_name":   nome_aerodromo,
-        "airport_info":   dados_aerodromo,
-        "source":         "SIROS/ANAC",
-        "source_url":     "https://sas.anac.gov.br/sas/siros_api/",
-        "arrivals":       chegadas,
-        "departures":     partidas,
+        "airport_icao": icao,
+        "airport_name": nome_aerodromo,
+        "airport_info": dados_aerodromo,
+        "source": "SIROS/ANAC",
+        "source_url": "https://sas.anac.gov.br/sas/siros_api/",
+        "arrivals": chegadas,
+        "departures": partidas,
     }
 
     path = f"data/{icao}.json"
+
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(output, fh, ensure_ascii=False, indent=2)
 
