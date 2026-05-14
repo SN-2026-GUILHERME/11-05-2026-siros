@@ -1,8 +1,8 @@
 {
-  "updated_at": "2026-05-14T20:05:07.599496+00:00",
+  "updated_at": "2026-05-14T20:05:11.648382+00:00",
   "data_referencia": "2026-05-14",
-  "airport_icao": "SBFL",
-  "airport_name": "SBFL",
+  "airport_icao": "SBFI",
+  "airport_name": "SBFI",
   "airport_info": {},
   "source": "SIROS/ANAC",
   "source_url": "https://sas.anac.gov.br/sas/siros_api/",
